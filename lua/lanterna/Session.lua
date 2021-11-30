@@ -8,6 +8,7 @@ local zmq = require 'lzmq'
 local zassert = zmq.assert
 local json = vim.json
 local uuid = require 'lanterna.vendor.uuid'
+local sha2 = require 'lanterna.vendor.sha2'
 
 local Session = {}
 Session.__index = Session
@@ -48,23 +49,29 @@ end
 -- See http://ipython.org/ipython-doc/stable/development/messaging.html
 function Session:encode(m)
   -- Message digest (for HMAC signature)
-  local d = crypto.hmac.new('sha256', self.session_key)
-  d:update(json.encode(m.header))
-  if m.parent_header then d:update(json.encode(m.parent_header)) else d:update('{}') end
-  if m.metadata then d:update(json.encode(m.metadata)) else d:update('{}') end
-  if m.content then d:update(json.encode(m.content)) else d:update('{}') end
+  local d = sha2.hmac(sha2.sha256, self.session_key)
+  local function serialize(dict)
+    local str = (dict and json.encode(dict)) or '{}'
+    d(str)
+    return str
+  end
+  local header = serialize(m.header)
+  local parent_header = serialize(m.parent_header)
+  local metadata = serialize(m.metadata)
+  local content = serialize(m.content)
 
   local o = {}
   for k,v in ipairs(m.uuid) do o[#o+1] = v end
   o[#o+1] = '<IDS|MSG>'
-  o[#o+1] = d:final()
-  o[#o+1] = json.encode(m.header)
-  if m.parent_header then o[#o+1] = json.encode(m.parent_header) else o[#o+1] = '{}' end
-  if m.metadata then o[#o+1] = json.encode(m.metadata) else o[#o+1] = '{}' end
-  if m.content then o[#o+1] = json.encode(m.content) else o[#o+1] = '{}' end
+  o[#o+1] = d()
+  o[#o+1] = header
+  o[#o+1] = parent_header
+  o[#o+1] = metadata
+  o[#o+1] = content
   if m.blob then o[#o+1] = m.blob end
   -- print('outgoing:')
   -- print(o)
+  return o
 end
 
 -- function for creating a new message object
@@ -75,7 +82,7 @@ function Session:msg(msg_type, parent)
       m.uuid = parent.uuid
       m.parent_header = parent.header
    else
-      m.parent_header = {}
+      m.parent_header = nil
    end
    m.header.msg_id = uuid.new()
    m.header.msg_type = msg_type

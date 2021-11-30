@@ -23,6 +23,15 @@ h.control = z.assert(h.context:socket{z.ROUTER, connect = prefix .. config.contr
 h.stdin = z.assert(h.context:socket{z.ROUTER, connect = prefix .. config.stdin_port})
 h.iopub = z.assert(h.context:socket{z.PAIR, connect = prefix .. config.iopub_port})
 
+package.loaded['lanterna.Session'] = nil
+
 h.session = Session.new(config.key)
+
+mess = h.session.msg'execute_request'
+mess.uuid = {'hong'}
+mess.content.aa = 'bb'
+
+q = h.session:encode(mess)
+h.session:decode(q)
 
 return h
