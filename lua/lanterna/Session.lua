@@ -26,11 +26,11 @@ function Session:decode(m)
   -- print('incoming:')
   -- print(m)
   local o = {}
-  o.uuid = {}
+  o.idents = {}
   local i = -1
   for k,v in ipairs(m) do
     if v == '<IDS|MSG>' then i = k+1; break; end
-    o.uuid[k] = v
+    o.idents[k] = v
   end
   assert(i ~= -1, 'Failed parsing till <IDS|MSG>')
   -- json decode
@@ -61,7 +61,7 @@ function Session:encode(m)
   local content = serialize(m.content)
 
   local o = {}
-  for k,v in ipairs(m.uuid) do o[#o+1] = v end
+  for k,v in ipairs(m.idents) do o[#o+1] = v end
   o[#o+1] = '<IDS|MSG>'
   o[#o+1] = d()
   o[#o+1] = header
@@ -79,10 +79,11 @@ function Session:msg(msg_type, parent)
    local m = {}
    m.header = {}
    if parent then
-      m.uuid = parent.uuid
+      m.idents = parent.idents
       m.parent_header = parent.header
    else
       m.parent_header = nil
+      m.idents = {}
    end
    m.header.msg_id = uuid.new()
    m.header.msg_type = msg_type
