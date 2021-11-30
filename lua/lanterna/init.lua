@@ -6,6 +6,7 @@ _G.h = h
 
 local lzmq = require'lzmq'
 local z = lzmq
+local Session = require'lanterna.Session'
 
 --connfile = ""
 
@@ -15,11 +16,13 @@ h.config = config
 
 h.context = z.context()
 
--- bind 0MQ ports: Shell (ROUTER), Control (ROUTER), Stdin (ROUTER), IOPub (PUB)
+-- connect to 0MQ ports: Shell (ROUTER), Control (ROUTER), Stdin (ROUTER), IOPub (PUB)
 local prefix = config.transport .. '://' .. config.ip .. ':'
 h.shell = z.assert(h.context:socket{z.ROUTER, connect = prefix .. config.shell_port})
 h.control = z.assert(h.context:socket{z.ROUTER, connect = prefix .. config.control_port})
 h.stdin = z.assert(h.context:socket{z.ROUTER, connect = prefix .. config.stdin_port})
 h.iopub = z.assert(h.context:socket{z.PAIR, connect = prefix .. config.iopub_port})
+
+h.session = Session.new(config.key)
 
 return h
