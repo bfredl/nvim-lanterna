@@ -87,8 +87,10 @@ function Session:msg(msg_type, parent)
    end
    m.header.msg_id = uuid.new()
    m.header.msg_type = msg_type
+   assert(self.session_id)
    m.header.session = self.session_id
    m.header.date = os.date("%Y-%m-%dT%H:%M:%S")
+   m.header.version = '5.3'
    m.header.username = 'lanterna'
    m.content = {}
    return m
