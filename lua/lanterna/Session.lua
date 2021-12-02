@@ -4,8 +4,6 @@
 -- All rights reserved.
 -- see vendor/itorch/LICENSE for full original license
 
-local zmq = require 'lzmq'
-local zassert = zmq.assert
 local json = vim.json
 local uuid = require 'lanterna.vendor.uuid'
 local sha2 = require 'lanterna.vendor.sha2'

@@ -4,8 +4,14 @@ _G.h = h
 
 -- connection logic based on facebookarchive/iTorch code
 -- released under a BSD-style license, see vendor/itorch/LICENSE
+local lzmq
+if pcall(require, 'ffi') then
+  -- TODO: vendor lzmq.ffi version of lzmq to avoid luarocks deps
+  lzmq = require'lzmq.ffi'
+else
+  lzmq = require'lzmq'
+end
 
-local lzmq = require'lzmq'
 local z = lzmq
 local Session = require'lanterna.Session'
 
@@ -34,8 +40,20 @@ function Client.connect(config)
   end
 
   self.iopub:set_subscribe''
-
   return self
+end
+
+function Client:poll_iopub(cb)
+  local fd = self.iopub:get_fd()
+  local poll = vim.loop.new_poll(fd)
+  poll:start('r', function()
+    if self.iopub:poll(0) then
+      local status = cb()
+      if status == false then
+        poll:stop()
+      end
+    end
+  end)
 end
 
 function Client:rawsend(sock, msg)
