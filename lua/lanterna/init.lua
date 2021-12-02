@@ -1,4 +1,5 @@
-local h = {}
+local h = _G._lanterna_state or {}
+_G._lanterna_state = h
 _G.h = h
 
 -- connection logic based on facebookarchive/iTorch code
@@ -8,52 +9,64 @@ local lzmq = require'lzmq'
 local z = lzmq
 local Session = require'lanterna.Session'
 
---connfile = ""
+h.context = h.context or z.context()
 
-local data = io.open(connfile):read'a*'
-local config = vim.json.decode(data)
-h.config = config
-_G.config = h.config
+local Client = h.Client or {}
+h.Client = Client
+Client.__index = Client
 
-local Session = require'lanterna.Session'
+function Client.connect(config)
+  local self = setmetatable({}, Client)
+  self.config = config
+  self.session = Session.new(config.key)
 
-h.session = Session.new(config.key)
+  -- connect to 0MQ ports: Shell (DEALER), Control (DEALER), Stdin (DEALER), IOPub (SUB)
+  local prefix = config.transport .. '://' .. config.ip .. ':'
+  self.shell = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.shell_port})
+  --h.shell = h.context:socket(z.ROUTER)
+  --h.shell:connect(prefix .. config.shell_port)
+  self.control = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.control_port})
+  self.stdin = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.stdin_port})
+  self.iopub = z.assert(h.context:socket{z.SUB, connect = prefix .. config.iopub_port})
 
-h.context = z.context()
+  for _, dealer in pairs{self.shell, self.control, self.stdin} do
+    dealer:set_identity(self.session.session_id)
+  end
 
--- connect to 0MQ ports: Shell (DEALER), Control (DEALER), Stdin (DEALER), IOPub (SUB)
-local prefix = config.transport .. '://' .. config.ip .. ':'
-h.shell = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.shell_port})
---h.shell = h.context:socket(z.ROUTER)
---h.shell:connect(prefix .. config.shell_port)
-h.control = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.control_port})
-h.stdin = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.stdin_port})
-h.iopub = z.assert(h.context:socket{z.SUB, connect = prefix .. config.iopub_port})
+  self.iopub:set_subscribe''
 
-for _, dealer in pairs{h.shell, h.control, h.stdin} do
-  dealer:set_identity(h.session.session_id)
+  return self
 end
 
-h.iopub:set_subscribe''
+function Client:rawsend(sock, msg)
+  local zmq_msg = self.session:encode(msg)
+  return sock:send_all(zmq_msg)
+end
 
-
-
-mess = h.session:msg'execute_request'
-mess.content.code = '1+2'
-mess.content.silent = false
-q = h.session:encode(mess)
 
 if false then
-  h.shell:send_all(q)
 
-  h.shell:poll(100)
-  datta = h.shell:recv_all()
-  reply = h.session:decode(datta)
+  --connfile = ""
+
+  local data = io.open(connfile):read'a*'
+  config = vim.json.decode(data)
+
+  client = h.Client.connect(config)
+
+
+  mess = client.session:msg'execute_request'
+  mess.content.code = '1+2'
+  mess.content.silent = false
+  client.shell:get_identity()
+
+  client:rawsend(client.shell, mess)
+
+  client.shell:poll(100)
+  datta = client.shell:recv_all()
+  reply = client.session:decode(datta)
 
   -- fääl
-  h.iopub:poll(100)
-
+  client.iopub:poll(100)
 end
---h.shell:poll()
 
 return h
