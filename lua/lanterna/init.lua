@@ -43,30 +43,9 @@ function Client:rawsend(sock, msg)
   return sock:send_all(zmq_msg)
 end
 
-
-if false then
-
-  --connfile = ""
-
-  local data = io.open(connfile):read'a*'
-  config = vim.json.decode(data)
-
-  client = h.Client.connect(config)
-
-
-  mess = client.session:msg'execute_request'
-  mess.content.code = '1+2'
-  mess.content.silent = false
-  client.shell:get_identity()
-
-  client:rawsend(client.shell, mess)
-
-  client.shell:poll(100)
-  datta = client.shell:recv_all()
-  reply = client.session:decode(datta)
-
-  -- fääl
-  client.iopub:poll(100)
+function h.connect(config)
+  return Client.connect(config)
 end
+
 
 return h
