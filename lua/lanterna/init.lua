@@ -29,8 +29,6 @@ function Client.connect(config)
   -- connect to 0MQ ports: Shell (DEALER), Control (DEALER), Stdin (DEALER), IOPub (SUB)
   local prefix = config.transport .. '://' .. config.ip .. ':'
   self.shell = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.shell_port})
-  --h.shell = h.context:socket(z.ROUTER)
-  --h.shell:connect(prefix .. config.shell_port)
   self.control = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.control_port})
   self.stdin = z.assert(h.context:socket{z.DEALER, connect = prefix .. config.stdin_port})
   self.iopub = z.assert(h.context:socket{z.SUB, connect = prefix .. config.iopub_port})
@@ -38,8 +36,8 @@ function Client.connect(config)
   for _, dealer in pairs{self.shell, self.control, self.stdin} do
     dealer:set_identity(self.session.session_id)
   end
-
   self.iopub:set_subscribe''
+
   return self
 end
 
@@ -47,10 +45,11 @@ function Client:poll_iopub(cb)
   local fd = self.iopub:get_fd()
   local poll = vim.loop.new_poll(fd)
   poll:start('r', function()
-    if self.iopub:poll(0) then
-      local status = cb()
+    while self.iopub:poll(0) do
+      local status = cb(self.session:decode(self.iopub:recv_all()))
       if status == false then
         poll:stop()
+        return
       end
     end
   end)
@@ -61,9 +60,15 @@ function Client:rawsend(sock, msg)
   return sock:send_all(zmq_msg)
 end
 
+function Client:shell_request(kind, content)
+  local mess = self.session:msg(kind)
+  mess.content = content
+  self:rawsend(self.shell, mess)
+  return mess
+end
+
 function h.connect(config)
   return Client.connect(config)
 end
-
 
 return h

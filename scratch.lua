@@ -15,9 +15,12 @@ mess = client.session:msg'execute_request'
 mess.content.code = '1+2'
 mess.content.silent = false
 
-client:rawsend(client.shell, mess)
+client:shell_request('execute_request', {code='3*5', silent=false})
 
-client:poll_iopub(vim.schedule_wrap(function() require'luadev'.print'aa' end))
+client:poll_iopub(vim.schedule_wrap(function(mess)
+  require'luadev'.print(mess.header.msg_type)
+  require'luadev'.print(vim.inspect(mess.content))
+end))
 client.shell:poll(100)
 datta = client.shell:recv_all()
 reply = client.session:decode(datta)
