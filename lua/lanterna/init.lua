@@ -55,6 +55,36 @@ function Client:poll_iopub(cb)
   end)
 end
 
+-- TODO: mess it up
+function Client:iopub_handlers()
+  local p = require'luadev'.print
+  iohandler = {}
+  function iohandler.execute_input(c)
+    p("In  ["..c.execution_count.."]: "..c.code)
+  end
+  function iohandler.execute_result(c)
+    local datas = c.data["text/plain"]
+    if datas then
+      p("Out ["..c.execution_count.."]: "..datas)
+    end
+  end
+  function iohandler.status(c)
+    self.state = c.execution_state
+    -- p("state: ",c.execution_state)
+  end
+  self.iohandler = iohandler
+
+  client:poll_iopub(vim.schedule_wrap(function(mess)
+    local hnd = self.iohandler[mess.header.msg_type]
+    if hnd then
+      hnd(mess.content)
+    else
+      p(mess.header.msg_type)
+      p(vim.inspect(mess.content))
+    end
+  end))
+end
+
 function Client:rawsend(sock, msg)
   local zmq_msg = self.session:encode(msg)
   return sock:send_all(zmq_msg)
@@ -69,6 +99,19 @@ end
 
 function h.connect(config)
   return Client.connect(config)
+end
+
+function h.connect_connfile(fn)
+  local data = io.open(fn):read'a*'
+  local config = vim.json.decode(data)
+  return h.connect(config)
+end
+
+function h.connect_latest()
+  local basepath = os.getenv'HOME' .. '/.local/share/jupyter/runtime/'
+  local latest = io.popen('ls --sort=time '..basepath):read'*l'
+  local connfile = basepath..latest
+  return h.connect_connfile(connfile)
 end
 
 return h
