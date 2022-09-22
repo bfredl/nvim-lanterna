@@ -25,6 +25,7 @@ function Client.connect(config)
   local self = setmetatable({}, Client)
   self.config = config
   self.session = Session.new(config.key)
+  self.shell_handlers = {}
 
   -- connect to 0MQ ports: Shell (DEALER), Control (DEALER), Stdin (DEALER), IOPub (SUB)
   local prefix = config.transport .. '://' .. config.ip .. ':'
@@ -85,14 +86,46 @@ function Client:iopub_handlers()
   end))
 end
 
+function Client:poll_shell()
+  local fd = self.shell:get_fd()
+  local poll = vim.loop.new_poll(fd)
+  poll:start('r', require'luadev'.schedule_wrap(function()
+    while self.shell:poll(0) do
+      local mess = self.session:decode(self.shell:recv_all())
+      local parent = mess.parent_header
+      if parent then
+        local parent_id = parent.msg_id
+        local cb = self.shell_handlers[parent_id]
+        self.shell_handlers[parent_id] = nil
+        if cb then
+          status, err = pcall(cb, mess)
+          if not status then
+            require'luadev'.append_buf(err, "ErrorMsg")
+          end
+        else
+            require'luadev'.print("WAAAAA", vim.inspect(mess))
+        end
+      else
+          require'luadev'.print("KAAAA")
+      end
+      -- if status == false then
+      --   poll:stop()
+      --   return
+      -- end
+    end
+  end))
+end
+
+
 function Client:rawsend(sock, msg)
   local zmq_msg = self.session:encode(msg)
   return sock:send_all(zmq_msg)
 end
 
-function Client:shell_request(kind, content)
+function Client:shell_request(kind, content, cb)
   local mess = self.session:msg(kind)
   mess.content = content
+  self.shell_handlers[mess.header.msg_id] = cb
   self:rawsend(self.shell, mess)
   return mess
 end
