@@ -12,5 +12,10 @@ end
 
 rq 'errrrrrrorr'
 
+client:send_shell(client:complete_msg("enume"), function(resp)
+  require'luadev'.print("COMPLRA", resp)
+end)
+
+
 datta = client.shell:recv_all()
 reply = client.session:decode(datta)

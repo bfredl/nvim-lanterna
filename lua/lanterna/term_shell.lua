@@ -43,7 +43,6 @@ end
 
 function handlers.error(c)
   local tb = table.concat(c.traceback, '\n')
-  _long = tb
   h.sendlines("ERROR:\n"..tb..'\n')
 end
 

@@ -73,7 +73,7 @@ function Session:encode(m)
 end
 
 -- function for creating a new message object
-function Session:msg(msg_type, parent)
+function Session:msg(msg_type, content, parent)
    local m = {}
    m.header = {}
    if parent then
@@ -90,7 +90,7 @@ function Session:msg(msg_type, parent)
    m.header.date = os.date("%Y-%m-%dT%H:%M:%S")
    m.header.version = '5.3'
    m.header.username = 'lanterna'
-   m.content = {}
+   m.content = content or {}
    return m
 end
 

@@ -122,12 +122,23 @@ function Client:rawsend(sock, msg)
   return sock:send_all(zmq_msg)
 end
 
+function Client:send_shell(msg, cb)
+  self.shell_handlers[msg.header.msg_id] = cb
+  self:rawsend(self.shell, msg)
+  return msg
+end
+
 function Client:shell_request(kind, content, cb)
-  local mess = self.session:msg(kind)
-  mess.content = content
-  self.shell_handlers[mess.header.msg_id] = cb
-  self:rawsend(self.shell, mess)
-  return mess
+  local msg = self.session:msg(kind, content)
+  self:send_shell(msg, cb)
+  return msg
+end
+
+function Client:complete_msg(code, column)
+  if column == nil then
+    column = #code
+  end
+  return self.session:msg("complete_request", {code=code, cursor_pos=column})
 end
 
 function h.connect(config)
