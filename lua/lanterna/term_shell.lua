@@ -41,6 +41,12 @@ function handlers.execute_result(c)
   end
 end
 
+function handlers.error(c)
+  local tb = table.concat(c.traceback, '\n')
+  _long = tb
+  h.sendlines("ERROR:\n"..tb..'\n')
+end
+
 function handlers.status(c)
   h.state = c.execution_state
   -- p("state: ",c.execution_state)
